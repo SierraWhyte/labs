@@ -1,3 +1,57 @@
+  - name: Update and upgrade apt packages
+    become: true
+    apt:
+        upgrade: yes
+        update_cache: yes
+        cache_valid_time: 86400 #one day
+
+  - name: Add Docker repo key (apt)
+    become: true
+    apt_key:
+      state: present
+      url: https://download.docker.com/linux/ubuntu/gpg
+    when: ansible_facts['os_family'] == "Debian"
+
+  - name: Enable Docker repo (Debian)
+    become: true
+    apt_repository:
+      repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu noble stable"
+      state: present
+      update_cache: yes
+    when: ansible_facts['os_family'] == "Debian"
+
+  - name: Install docker support tools
+    become: true
+    package:
+      name: "{{ item }}"
+      state: latest
+    with_items:
+        - apt-transport-https
+        - ca-certificates
+        - curl
+        - software-properties-common
+        - python3
+        - python3-setuptools
+        - python3-pip
+        - python3-jsondiff
+
+  - name: Install Docker
+    package:
+      name: docker-ce
+      state: latest
+
+  - name: enable service docker and ensure it is started
+    systemd:
+      name: docker
+      state: started
+      enabled: yes
+
+  - name: Create directory for systemd docker env configuration
+    file:
+      path: /etc/systemd/system/docker.service.d
+      state: directory
+      mode: '0755'
+
 - name: Install prerequisites
   become: true
   package:
