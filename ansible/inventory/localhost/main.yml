@@ -1,0 +1,21 @@
+### postgres settings
+# postgres_major is used to install the postgres client and vector chord version
+postgres_major: "17"
+# password for postgres user
+postgres_password: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          34626533313631616562633938316535373462393634656365623230623336353838626331633637
+          6363383939366531636463663334663331303738646537370a373232346530376536666131653735
+          30306437613233663865636564383936656533303264386563656565616562636666306364653866
+          3633653063656330370a323264346431396638313533653464316465306566663431336464373334
+          36643038336539626336333333356630333335643166653130616637306433396531
+
+# db settings
+db_name: "immich"
+db_user: "immich"
+# for the db_user
+db_password: ""
+
+# user settings
+# where postgresql.conf file is temporarily stored on the server before being copied into the container
+user_dir: "path/to/use"
