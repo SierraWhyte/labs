@@ -54,8 +54,9 @@
   become: true
   community.docker.docker_container:
     # name hardcoded for consistency across envs
-    name: postgres-db 
-    image: postgres:{{ postgres_version }}
+    name: postgres-db
+    # Use the vchord image which has the pgvector extension preinstalled https://github.com/tensorchord/VectorChord
+    image: tensorchord/vchord-postgres:pg{{ postgres_version }}-v1.1.1
     restart_policy: "always"
     ports: "5432:5432"
     volumes: pgdata:/var/lib/postgresql/data
