@@ -1,0 +1,147 @@
+- name: Install prerequisites
+  become: true
+  package:
+    name: "{{ item }}"
+    state: latest
+  with_items:
+      - ca-certificates
+      - curl
+      - gnupg
+      - apt-transport-https
+
+- name: Install psycopg2 via pip 
+# This is needed to use the postgresql ansible commands
+  become: true
+  pip:
+    name: psycopg2-binary
+
+- name: Add postgresql keys 
+# Sometimes you need to pull postgres repo because packages aren't avaliable on Linux by default
+  become: true
+  apt_key:
+    state: present
+    url: https://www.postgresql.org/media/keys/ACCC4CF8.asc
+  when: ansible_facts['os_family'] == "Debian"
+
+- name: Pull postgresql repo
+  become: true
+  apt_repository:
+    repo: "deb http://apt.postgresql.org/pub/repos/apt {{ ansible_distribution_release }}-pgdg main"
+    state: present
+    filename: pgdg
+    update_cache: yes
+  when: ansible_facts['os_family'] == "Debian"
+
+- name: Update and upgrade apt packages
+  become: true
+  apt:
+    upgrade: yes
+    update_cache: yes
+    cache_valid_time: 86400 #one day
+
+- name: Install postgresql
+  package:
+    name: "{{ item }}"
+  with_items:
+      - postgresql-client-common
+      - postgresql-client-{{ postgres_major }}
+
+- name: Create a volume
+  community.docker.docker_volume:
+    name: pgdata
+
+- name: Start db container
+  become: true
+  community.docker.docker_container:
+    # name hardcoded for consistency across envs
+    name: postgres-db 
+    image: postgres:{{ postgres_version }}
+    restart_policy: "always"
+    ports: "5432:5432"
+    volumes: pgdata:/var/lib/postgresql/data
+    # shm_size set as per https://github.com/immich-app/immich/blob/a2ff075e9a84cc44e0d5f7f6b639a456e73ad5c0/e2e/docker-compose.yml#L61C5-L61C20
+    shm_size: 128mb
+    env:
+      POSTGRES_PASSWORD: "{{ postgres_password }}"
+
+- name: Wait for port 5432, check if avaliable after 10 sec
+  ansible.builtin.wait_for:
+    port: 5432
+    delay: 10
+
+- name: Create the database
+  community.postgresql.postgresql_db:
+    login_host: localhost
+    login_user: postgres
+    login_password: "{{ postgres_password }}"
+    name: "{{ db_name }}"
+
+- name: Create a user and set password
+  community.postgresql.postgresql_user:
+    login_host: localhost
+    login_user: postgres
+    login_password: "{{ postgres_password }}"
+    name: "{{ db_user }}"
+    password: "{{ db_password }}"
+
+- name: GRANT ALL PRIVILEGES ON DATABASE user to db
+  community.postgresql.postgresql_privs:
+    login_host: localhost
+    login_user: postgres
+    login_password: "{{ postgres_password }}"
+    db: postgres
+    privs: ALL
+    type: database
+    obj: "{{ db_name }}"
+    role: "{{ db_user }}"
+
+# This is a required step for any postgres db > 14
+# version 15 and up you must grant permissions to create tables in the public schema
+- name: GRANT ALL ON SCHEMA public to defined user
+  community.postgresql.postgresql_privs:
+    login_host: localhost
+    login_user: postgres
+    login_password: "{{ postgres_password }}"
+    db: postgres
+    privs: ALL
+    type: schema
+    objs: public
+    role: postgres
+
+- name: Add vchord and earthdistance extensions for defined db
+  community.postgresql.postgresql_ext:
+    login_host: localhost
+    login_user: postgres
+    login_password: "{{ postgres_password }}"
+    db: "{{ db_name }}"
+    name: "{{ item }}"
+  with_items:
+      - vchord
+      - earthdistance
+
+- name: Copy postgresql.conf to server 
+# This postgresql.conf will enable ssl
+  template:
+      src: ../files/postgresql.conf
+      dest: /home/{{ user_dir }}/postgresql.conf
+      owner: root
+      group: root
+  become: true
+
+- name: Copy postgresql.conf into container
+  community.docker.docker_container_copy_into:
+    container: postgres-db
+    path: /home/{{ user_dir }}/postgresql.conf
+    container_path: /var/lib/postgresql/data/postgresql.conf
+
+- name: Remove postgresql.conf file off of server
+  file:
+    path: /home/{{ user_dir }}/postgresql.conf
+    state: absent
+
+- name: Restart db container
+  become: true
+  community.docker.docker_container:
+    name: postgres-db
+    state: started
+    restart: true

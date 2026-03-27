@@ -22,3 +22,10 @@ spec:
         name: mealie
         ports:
           - containerPort: 9000
+        volumeMounts:
+         - name: mealie-store
+           mountPath: /app/data
+      volumes:
+       - name: mealie-store
+         persistentVolumeClaim:
+           claimName: mealie-store

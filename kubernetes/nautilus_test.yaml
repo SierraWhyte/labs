@@ -1,0 +1,97 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: nautilus-test
+  name: nautilus-test
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nautilus-test
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: nautilus-test
+    spec:
+      containers:
+      - command:
+        - /usr/bin/uwsgi
+        - --plugins-dir
+        - /usr/local/lib/uwsgi
+        - --plugin
+        - /usr/local/lib/uwsgi/python39_plugin.so
+        - --plugin
+        - /usr/local/lib/uwsgi/python3_plugin.so
+        - --python-path
+        - /usr/local/lib/python3.9/dist-packages
+        - --python-path
+        - /usr/lib/python3/dist-packages
+        - --socket-timeout
+        - "750"
+        - --buffer-size
+        - "65535"
+        - --log-x-forwarded-for
+        - --http-socket
+        - 0.0.0.0:8000
+        - --module
+        - nautilus.wsgihandler
+        - --processes
+        - "1"
+        - --threads
+        - "4"
+        - --callable
+        - application
+        - --no-site
+        - --lazy-apps
+        - --enable-threads
+        - --ignore-sigpipe
+        - --ignore-write-errors
+        - --write-errors-exception-only
+        - --need-app
+        - --stats
+        - :8001
+        image: authentise/nautilus:v10.0-5409-g4f77cddef
+        name: nautilus
+        resources: {}
+status: {}
+metadata:
+  creationTimestamp: null
+  labels:
+    app: nautilus-test-backend
+  name: nautilus-test-backend
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nautilus-test-backend
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: nautilus-test-backend
+    spec:
+      containers:
+      - command:
+        - /usr/local/bin/celery
+        - -A
+        - nautilus.backend_handler
+        - worker
+        - -l
+        - debug
+        - -Ofair
+        - --max-tasks-per-child
+        - "10"
+        - --autoscale
+        - 4,1
+        image: authentise/nautilus:v10.0-5409-g4f77cddef
+        name: nautilus
+        envFrom:
+        - configMapRef:
+            name: nautilus-env4
+        resources: {}
+status: {}

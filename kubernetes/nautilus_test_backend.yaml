@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: nautilus-test-backend
+  name: nautilus-test-backend
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nautilus-test-backend
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: nautilus-test-backend
+    spec:
+      containers:
+      - command:
+        - /usr/local/bin/celery
+        - -A
+        - nautilus.backend_handler
+        - worker
+        - -l
+        - debug
+        - -Ofair
+        - --max-tasks-per-child
+        - "10"
+        - --autoscale
+        - 4,1
+        image: authentise/nautilus:v10.0-5409-g4f77cddef
+        name: nautilus
+        envFrom:
+        - configMapRef:
+            name: nautilus-env
+        resources: {}
+status: {}

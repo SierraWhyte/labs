@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  labels:
+    app: nginx-replicas
+  name: nginx-replicas
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx-replicas
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: nginx-replicas
+    spec:
+      containers:
+      - image: nginx
+        name: nginx
+        resources: {}
+status: {}
+metadata:
+  creationTimestamp: null
+  labels:
+    app: nginx-replicas2
+  name: nginx-replicas2
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx-replicas2
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        app: nginx-replicas2
+    spec:
+      containers:
+      - image: nginx
+        name: nginx
+        resources: {}
+status: {}
