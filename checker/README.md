@@ -1,26 +1,22 @@
 # Checker
 
-A web app for creating and managing checklists. Name checklists, add tasks, and mark items complete — completed tasks move to a **Completed** section at the bottom. Data is stored in PostgreSQL.
+A multi-user web app for creating and managing checklists. Sign in with email and password, share checklists with others, and archive checklists instead of deleting them.
 
 ## Setup secrets
-
-Copy the example secrets file and set your own values:
 
 ```bash
 cp secrets.env.example secrets.env
 ```
 
-Edit `secrets.env` with strong passwords. This file is gitignored and is never committed.
+Edit `secrets.env` with strong passwords and a unique `JWT_SECRET`. This file is gitignored.
 
 | Variable | Purpose |
 |----------|---------|
-| `POSTGRES_USER` / `POSTGRES_PASSWORD` | Postgres superuser (database admin) |
-| `POSTGRES_DB` | Database name (`checker`) |
-| `CHECKER_DB_USER` / `CHECKER_DB_PASSWORD` | Application user — API connects with this account |
+| `POSTGRES_USER` / `POSTGRES_PASSWORD` | Postgres superuser |
+| `CHECKER_DB_*` | Application database user |
+| `JWT_SECRET` | Signs user session tokens |
 
-## Run with Docker (recommended)
-
-From this directory:
+## Run with Docker
 
 ```bash
 docker compose up --build
@@ -28,71 +24,31 @@ docker compose up --build
 
 Open [http://localhost:8080](http://localhost:8080).
 
-Services:
-
-| Service | Port | Description |
-|---------|------|-------------|
-| `web` | 8080 | React frontend (nginx) |
-| `api` | 3001 | REST API (Node/Express) |
-| `db` | 5432 | PostgreSQL 16 |
-
-Credentials are loaded from `secrets.env` at runtime — nothing secret is baked into the Docker images.
-
-If you previously ran an older version of this app, reset the database volume so migrations re-run:
+After schema changes, reset the database volume:
 
 ```bash
 docker compose down -v
 docker compose up --build
 ```
 
-Stop with `Ctrl+C`, then remove containers and volumes:
+## Features
 
-```bash
-docker compose down -v
-```
-
-## Local development
-
-**1. Create secrets**
-
-```bash
-cp secrets.env.example secrets.env
-```
-
-**2. Start Postgres**
-
-```bash
-docker compose up db -d
-```
-
-**3. Start the API**
-
-```bash
-cd api
-npm install
-export $(grep -v '^#' ../secrets.env | xargs)
-npm run dev
-```
-
-**4. Start the frontend**
-
-```bash
-npm install
-npm run dev
-```
-
-Open [http://localhost:5173](http://localhost:5173). Vite proxies `/api` requests to the API on port 3001.
+- **Sign in / sign up** — email as username, password (min 8 characters)
+- **Checklists** — create, rename, add tasks, mark complete
+- **Sharing** — owners share checklists by entering another user's email (they must have an account)
+- **Archive** — replaces delete; archived checklists appear in the sidebar under **Archived**
+- **Restore** — owners can restore archived checklists to add tasks again; archived checklists are read-only for new tasks
 
 ## API
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/checklists` | List all checklists with tasks |
-| POST | `/api/checklists` | Create checklist `{ "name": "..." }` |
-| PATCH | `/api/checklists/:id` | Rename checklist |
-| DELETE | `/api/checklists/:id` | Delete checklist |
-| POST | `/api/checklists/:id/tasks` | Add task `{ "text": "..." }` |
-| PATCH | `/api/checklists/:id/tasks/:taskId` | Update task (toggle complete) |
-| DELETE | `/api/checklists/:id/tasks/:taskId` | Delete task |
+| POST | `/api/auth/register` | Create account |
+| POST | `/api/auth/login` | Sign in |
+| GET | `/api/auth/me` | Current user (auth required) |
+| GET | `/api/checklists?archived=false\|true` | List checklists |
+| POST | `/api/checklists/:id/archive` | Archive (owner) |
+| POST | `/api/checklists/:id/restore` | Restore (owner) |
+| POST | `/api/checklists/:id/share` | Share by email (owner) |
 
-Completed tasks are ordered at the bottom by completion time.
+All checklist routes require `Authorization: Bearer <token>`.

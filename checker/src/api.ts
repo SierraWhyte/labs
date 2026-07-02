@@ -1,15 +1,35 @@
-import type { Checklist, Task } from './types'
+import type { AuthResponse, Checklist, Task, User } from './types'
 
 const API_BASE = '/api'
+const TOKEN_KEY = 'checker-token'
+
+let authToken: string | null = localStorage.getItem(TOKEN_KEY)
+
+export function getToken() {
+  return authToken
+}
+
+export function setToken(token: string | null) {
+  authToken = token
+  if (token) localStorage.setItem(TOKEN_KEY, token)
+  else localStorage.removeItem(TOKEN_KEY)
+}
 
 async function request<T>(
   path: string,
   options?: RequestInit,
+  auth = true,
 ): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    ...options,
-  })
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(options?.headers as Record<string, string>),
+  }
+
+  if (auth && authToken) {
+    headers.Authorization = `Bearer ${authToken}`
+  }
+
+  const res = await fetch(`${API_BASE}${path}`, { ...options, headers })
 
   if (res.status === 204) {
     return undefined as T
@@ -23,8 +43,34 @@ async function request<T>(
   return res.json()
 }
 
-export async function fetchChecklists(): Promise<Checklist[]> {
-  return request<Checklist[]>('/checklists')
+export async function register(
+  email: string,
+  password: string,
+): Promise<AuthResponse> {
+  return request<AuthResponse>(
+    '/auth/register',
+    { method: 'POST', body: JSON.stringify({ email, password }) },
+    false,
+  )
+}
+
+export async function login(
+  email: string,
+  password: string,
+): Promise<AuthResponse> {
+  return request<AuthResponse>(
+    '/auth/login',
+    { method: 'POST', body: JSON.stringify({ email, password }) },
+    false,
+  )
+}
+
+export async function fetchMe(): Promise<{ user: User }> {
+  return request<{ user: User }>('/auth/me')
+}
+
+export async function fetchChecklists(archived = false): Promise<Checklist[]> {
+  return request<Checklist[]>(`/checklists?archived=${archived}`)
 }
 
 export async function createChecklist(name: string): Promise<Checklist> {
@@ -44,8 +90,22 @@ export async function renameChecklist(
   })
 }
 
-export async function deleteChecklist(id: string): Promise<void> {
-  return request<void>(`/checklists/${id}`, { method: 'DELETE' })
+export async function archiveChecklist(id: string): Promise<void> {
+  return request<void>(`/checklists/${id}/archive`, { method: 'POST' })
+}
+
+export async function restoreChecklist(id: string): Promise<Checklist> {
+  return request<Checklist>(`/checklists/${id}/restore`, { method: 'POST' })
+}
+
+export async function shareChecklist(
+  id: string,
+  email: string,
+): Promise<Checklist> {
+  return request<Checklist>(`/checklists/${id}/share`, {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  })
 }
 
 export async function createTask(

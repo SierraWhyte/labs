@@ -92,6 +92,175 @@ input:focus {
   margin-top: 0.25rem;
 }
 
+.sidebar-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.user-email {
+  word-break: break-all;
+}
+
+.btn-sm {
+  font-size: 0.75rem;
+  padding: 0.35rem 0.6rem;
+}
+
+.sidebar-section-heading {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+}
+
+.archived-heading {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.badge-archived {
+  background: rgba(139, 156, 179, 0.2);
+  color: var(--text-muted);
+}
+
+.badge-shared {
+  background: rgba(59, 130, 246, 0.2);
+  color: #93c5fd;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: white;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.btn-primary:hover {
+  background: var(--accent-hover);
+}
+
+.share-form {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  width: 100%;
+  max-width: 420px;
+}
+
+.share-form button {
+  background: var(--surface-hover);
+  color: var(--text);
+  padding: 0.65rem 1rem;
+  white-space: nowrap;
+  font-weight: 500;
+  border: 1px solid var(--border);
+}
+
+.share-form button:hover:not(:disabled) {
+  background: var(--border);
+}
+
+.shared-with {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 0.75rem;
+}
+
+.archived-notice {
+  background: rgba(139, 156, 179, 0.12);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+.auth-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 400px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) + 4px);
+  padding: 2rem;
+}
+
+.auth-brand {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.auth-brand h1 {
+  font-size: 1.75rem;
+  margin-top: 0.75rem;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.auth-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.auth-form button[type='submit'] {
+  background: var(--accent);
+  color: white;
+  padding: 0.75rem 1rem;
+  font-weight: 600;
+  margin-top: 0.25rem;
+}
+
+.auth-form button[type='submit']:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.auth-toggle {
+  text-align: center;
+  margin-top: 1.25rem;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.link-button {
+  background: none;
+  border: none;
+  color: var(--accent);
+  padding: 0;
+  font-weight: 500;
+  text-decoration: underline;
+}
+
+.link-button:hover {
+  color: var(--accent-hover);
+}
+
 .create-form,
 .add-task-form,
 .rename-form {

@@ -1,6 +1,36 @@
 import { FormEvent, useState } from 'react'
+import { useAuth } from './useAuth'
+import AuthPage from './AuthPage'
 import { useChecklists } from './useChecklists'
-import type { Task } from './types'
+import type { Checklist, Task } from './types'
+
+function ChecklistNavItem({
+  checklist,
+  isActive,
+  onSelect,
+}: {
+  checklist: Checklist
+  isActive: boolean
+  onSelect: () => void
+}) {
+  const done = checklist.tasks.filter((t) => t.completed).length
+  const total = checklist.tasks.length
+
+  return (
+    <li>
+      <button
+        type="button"
+        className={`checklist-item ${isActive ? 'active' : ''}`}
+        onClick={onSelect}
+      >
+        <span className="checklist-item-name">{checklist.name}</span>
+        <span className="checklist-item-count">
+          {done}/{total}
+        </span>
+      </button>
+    </li>
+  )
+}
 
 function TaskItem({
   task,
@@ -14,11 +44,7 @@ function TaskItem({
   return (
     <li className={`task-item ${task.completed ? 'completed' : ''}`}>
       <label className="task-checkbox">
-        <input
-          type="checkbox"
-          checked={task.completed}
-          onChange={onToggle}
-        />
+        <input type="checkbox" checked={task.completed} onChange={onToggle} />
         <span className="checkmark" />
       </label>
       <span className="task-text">{task.text}</span>
@@ -35,31 +61,36 @@ function TaskItem({
   )
 }
 
-export default function App() {
+function AppContent() {
+  const { user, logout } = useAuth()
   const {
     checklists,
+    archivedChecklists,
     activeChecklist,
     loading,
     error,
     createChecklist,
-    deleteChecklist,
+    archiveChecklist,
+    restoreChecklist,
+    shareChecklist,
     renameChecklist,
     selectChecklist,
     addTask,
     toggleTask,
     deleteTask,
-  } = useChecklists()
+  } = useChecklists(true)
 
   const [newChecklistName, setNewChecklistName] = useState('')
   const [newTaskText, setNewTaskText] = useState('')
+  const [shareEmail, setShareEmail] = useState('')
   const [editingName, setEditingName] = useState(false)
   const [editNameValue, setEditNameValue] = useState('')
 
+  const isArchived = activeChecklist?.archived ?? false
   const activeTasks =
     activeChecklist?.tasks.filter((t) => !t.completed) ?? []
   const completedTasks =
     activeChecklist?.tasks.filter((t) => t.completed) ?? []
-
   const completedCount = completedTasks.length
   const totalCount = activeChecklist?.tasks.length ?? 0
   const progress =
@@ -74,9 +105,17 @@ export default function App() {
 
   function handleAddTask(e: FormEvent) {
     e.preventDefault()
-    if (!activeChecklist) return
+    if (!activeChecklist || isArchived) return
     void addTask(activeChecklist.id, newTaskText).then((created) => {
       if (created) setNewTaskText('')
+    })
+  }
+
+  function handleShare(e: FormEvent) {
+    e.preventDefault()
+    if (!activeChecklist) return
+    void shareChecklist(activeChecklist.id, shareEmail).then(() => {
+      setShareEmail('')
     })
   }
 
@@ -96,8 +135,13 @@ export default function App() {
     <div className="app">
       <aside className="sidebar">
         <header className="sidebar-header">
-          <h1>Checker</h1>
-          <p className="subtitle">Create and manage your checklists</p>
+          <div className="sidebar-title-row">
+            <h1>Checker</h1>
+            <button type="button" className="btn-ghost btn-sm" onClick={logout}>
+              Sign out
+            </button>
+          </div>
+          <p className="subtitle user-email">{user?.email}</p>
         </header>
 
         <form className="create-form" onSubmit={handleCreateChecklist}>
@@ -114,30 +158,37 @@ export default function App() {
         </form>
 
         <nav className="checklist-nav" aria-label="Your checklists">
+          <h2 className="sidebar-section-heading">Checklists</h2>
           {checklists.length === 0 ? (
             <p className="empty-hint">No checklists yet. Create one above.</p>
           ) : (
             <ul>
-              {checklists.map((checklist) => {
-                const done = checklist.tasks.filter((t) => t.completed).length
-                const total = checklist.tasks.length
-                const isActive = activeChecklist?.id === checklist.id
+              {checklists.map((checklist) => (
+                <ChecklistNavItem
+                  key={checklist.id}
+                  checklist={checklist}
+                  isActive={activeChecklist?.id === checklist.id}
+                  onSelect={() => selectChecklist(checklist.id)}
+                />
+              ))}
+            </ul>
+          )}
 
-                return (
-                  <li key={checklist.id}>
-                    <button
-                      type="button"
-                      className={`checklist-item ${isActive ? 'active' : ''}`}
-                      onClick={() => selectChecklist(checklist.id)}
-                    >
-                      <span className="checklist-item-name">{checklist.name}</span>
-                      <span className="checklist-item-count">
-                        {done}/{total}
-                      </span>
-                    </button>
-                  </li>
-                )
-              })}
+          <h2 className="sidebar-section-heading archived-heading">
+            Archived
+          </h2>
+          {archivedChecklists.length === 0 ? (
+            <p className="empty-hint">No archived checklists.</p>
+          ) : (
+            <ul>
+              {archivedChecklists.map((checklist) => (
+                <ChecklistNavItem
+                  key={checklist.id}
+                  checklist={checklist}
+                  isActive={activeChecklist?.id === checklist.id}
+                  onSelect={() => selectChecklist(checklist.id)}
+                />
+              ))}
             </ul>
           )}
         </nav>
@@ -162,7 +213,7 @@ export default function App() {
           <>
             <header className="main-header">
               <div className="title-row">
-                {editingName ? (
+                {editingName && activeChecklist.isOwner && !isArchived ? (
                   <form
                     className="rename-form"
                     onSubmit={(e) => {
@@ -189,15 +240,23 @@ export default function App() {
                 ) : (
                   <>
                     <h2>{activeChecklist.name}</h2>
-                    <button
-                      type="button"
-                      className="btn-ghost btn-icon"
-                      onClick={startEditingName}
-                      aria-label="Rename checklist"
-                      title="Rename"
-                    >
-                      ✎
-                    </button>
+                    {isArchived && (
+                      <span className="badge badge-archived">Archived</span>
+                    )}
+                    {!activeChecklist.isOwner && (
+                      <span className="badge badge-shared">Shared with you</span>
+                    )}
+                    {activeChecklist.isOwner && !isArchived && (
+                      <button
+                        type="button"
+                        className="btn-ghost btn-icon"
+                        onClick={startEditingName}
+                        aria-label="Rename checklist"
+                        title="Rename"
+                      >
+                        ✎
+                      </button>
+                    )}
                   </>
                 )}
               </div>
@@ -216,39 +275,83 @@ export default function App() {
                     </span>
                   </div>
                 )}
-                <button
-                  type="button"
-                  className="btn-danger"
-                  onClick={() => {
-                    if (
-                      confirm(
-                        `Delete "${activeChecklist.name}" and all its tasks?`,
-                      )
-                    ) {
-                      void deleteChecklist(activeChecklist.id)
-                    }
-                  }}
-                >
-                  Delete checklist
-                </button>
+                {activeChecklist.isOwner &&
+                  (isArchived ? (
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      onClick={() => void restoreChecklist(activeChecklist.id)}
+                    >
+                      Restore checklist
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn-danger"
+                      onClick={() => {
+                        if (
+                          confirm(
+                            `Archive "${activeChecklist.name}"? You can restore it later from the sidebar.`,
+                          )
+                        ) {
+                          void archiveChecklist(activeChecklist.id)
+                        }
+                      }}
+                    >
+                      Archive checklist
+                    </button>
+                  ))}
               </div>
+
+              {activeChecklist.isOwner &&
+                !isArchived &&
+                activeChecklist.sharedWith.length > 0 && (
+                  <p className="shared-with">
+                    Shared with: {activeChecklist.sharedWith.join(', ')}
+                  </p>
+                )}
+
+              {activeChecklist.isOwner && !isArchived && (
+                <form className="share-form" onSubmit={handleShare}>
+                  <input
+                    type="email"
+                    placeholder="Share with email..."
+                    value={shareEmail}
+                    onChange={(e) => setShareEmail(e.target.value)}
+                    aria-label="Share with email"
+                  />
+                  <button type="submit" disabled={!shareEmail.trim()}>
+                    Share
+                  </button>
+                </form>
+              )}
             </header>
 
-            <form className="add-task-form" onSubmit={handleAddTask}>
-              <input
-                type="text"
-                placeholder="Add a task..."
-                value={newTaskText}
-                onChange={(e) => setNewTaskText(e.target.value)}
-                aria-label="New task"
-              />
-              <button type="submit" disabled={!newTaskText.trim()}>
-                Add task
-              </button>
-            </form>
+            {isArchived ? (
+              <p className="status-banner archived-notice">
+                This checklist is archived. Restore it to add new tasks.
+              </p>
+            ) : (
+              <form className="add-task-form" onSubmit={handleAddTask}>
+                <input
+                  type="text"
+                  placeholder="Add a task..."
+                  value={newTaskText}
+                  onChange={(e) => setNewTaskText(e.target.value)}
+                  aria-label="New task"
+                />
+                <button type="submit" disabled={!newTaskText.trim()}>
+                  Add task
+                </button>
+              </form>
+            )}
 
             {activeChecklist.tasks.length === 0 ? (
-              <p className="empty-tasks">No tasks yet. Add one above.</p>
+              <p className="empty-tasks">
+                {isArchived
+                  ? 'No tasks in this archived checklist.'
+                  : 'No tasks yet. Add one above.'}
+              </p>
             ) : (
               <>
                 <section className="task-section" aria-label="Active tasks">
@@ -303,4 +406,20 @@ export default function App() {
       </main>
     </div>
   )
+}
+
+export default function App() {
+  const { user, loading } = useAuth()
+
+  if (loading) {
+    return (
+      <div className="auth-page">
+        <div className="status-banner loading">Loading…</div>
+      </div>
+    )
+  }
+
+  if (!user) return <AuthPage />
+
+  return <AppContent />
 }

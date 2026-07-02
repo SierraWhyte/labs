@@ -2,36 +2,55 @@ import { useCallback, useEffect, useState } from 'react'
 import * as api from './api'
 import type { Checklist } from './types'
 
-export function useChecklists() {
+export function useChecklists(enabled: boolean) {
   const [checklists, setChecklists] = useState<Checklist[]>([])
+  const [archivedChecklists, setArchivedChecklists] = useState<Checklist[]>([])
   const [activeChecklistId, setActiveChecklistId] = useState<string | null>(
     null,
   )
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const activeChecklist = checklists.find((c) => c.id === activeChecklistId)
+  const allChecklists = [...checklists, ...archivedChecklists]
+  const activeChecklist = allChecklists.find((c) => c.id === activeChecklistId)
 
   const refresh = useCallback(async () => {
-    const data = await api.fetchChecklists()
-    setChecklists(data)
+    const [active, archived] = await Promise.all([
+      api.fetchChecklists(false),
+      api.fetchChecklists(true),
+    ])
+    setChecklists(active)
+    setArchivedChecklists(archived)
     setActiveChecklistId((current) => {
-      if (current && data.some((c) => c.id === current)) return current
-      return data[0]?.id ?? null
+      const combined = [...active, ...archived]
+      if (current && combined.some((c) => c.id === current)) return current
+      return active[0]?.id ?? archived[0]?.id ?? null
     })
   }, [])
 
   useEffect(() => {
+    if (!enabled) {
+      setChecklists([])
+      setArchivedChecklists([])
+      setActiveChecklistId(null)
+      setLoading(false)
+      return
+    }
+
     let cancelled = false
 
     async function load() {
       try {
         setLoading(true)
         setError(null)
-        const data = await api.fetchChecklists()
+        const [active, archived] = await Promise.all([
+          api.fetchChecklists(false),
+          api.fetchChecklists(true),
+        ])
         if (cancelled) return
-        setChecklists(data)
-        setActiveChecklistId(data[0]?.id ?? null)
+        setChecklists(active)
+        setArchivedChecklists(archived)
+        setActiveChecklistId(active[0]?.id ?? archived[0]?.id ?? null)
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : 'Failed to load')
@@ -41,11 +60,11 @@ export function useChecklists() {
       }
     }
 
-    load()
+    void load()
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [enabled])
 
   const run = useCallback(
     async (action: () => Promise<void>) => {
@@ -75,11 +94,32 @@ export function useChecklists() {
     [run],
   )
 
-  const deleteChecklist = useCallback(
+  const archiveChecklist = useCallback(
     async (id: string) => {
       await run(async () => {
-        await api.deleteChecklist(id)
+        await api.archiveChecklist(id)
         setActiveChecklistId((current) => (current === id ? null : current))
+      })
+    },
+    [run],
+  )
+
+  const restoreChecklist = useCallback(
+    async (id: string) => {
+      await run(async () => {
+        const restored = await api.restoreChecklist(id)
+        setActiveChecklistId(restored.id)
+      })
+    },
+    [run],
+  )
+
+  const shareChecklist = useCallback(
+    async (id: string, email: string) => {
+      const trimmed = email.trim()
+      if (!trimmed) return
+      await run(async () => {
+        await api.shareChecklist(id, trimmed)
       })
     },
     [run],
@@ -116,7 +156,7 @@ export function useChecklists() {
 
   const toggleTask = useCallback(
     async (checklistId: string, taskId: string) => {
-      const checklist = checklists.find((c) => c.id === checklistId)
+      const checklist = allChecklists.find((c) => c.id === checklistId)
       const task = checklist?.tasks.find((t) => t.id === taskId)
       if (!task) return
 
@@ -126,7 +166,7 @@ export function useChecklists() {
         })
       })
     },
-    [checklists, run],
+    [allChecklists, run],
   )
 
   const deleteTask = useCallback(
@@ -140,12 +180,15 @@ export function useChecklists() {
 
   return {
     checklists,
+    archivedChecklists,
     activeChecklist,
     activeChecklistId,
     loading,
     error,
     createChecklist,
-    deleteChecklist,
+    archiveChecklist,
+    restoreChecklist,
+    shareChecklist,
     renameChecklist,
     selectChecklist,
     addTask,
